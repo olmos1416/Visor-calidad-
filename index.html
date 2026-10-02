@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Inspección de Calidad IA</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 10px;
+    }
+    #webcam-container {
+      margin: 10px auto;
+      width: 280px;
+      height: 280px;
+    }
+    #webcam-container canvas {
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    #status-card {
+      margin: 15px auto;
+      padding: 15px;
+      width: 250px;
+      font-size: 26px;
+      font-weight: bold;
+      color: white;
+      border-radius: 8px;
+      background-color: #6c757d;
+      transition: background-color 0.3s ease;
+    }
+    #confidence {
+      font-size: 15px;
+      color: #333;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status-card">INICIALIZANDO...</div>
+  <div id="webcam-container"></div>
+  <div id="confidence">Confianza: -</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <script>
+    // REEMPLAZA ESTA URL CON TU ENLACE OBTENIDO EN EL PASO 1 (deja la barra al final)
+    const URL_MODELO = "https://teachablemachine.withgoogle.com/models/W15GQAaNh/";
+
+    let model, webcam, maxPredictions;
+
+    async function init() {
+        const modelURL = URL_MODELO + "model.json";
+        const metadataURL = URL_MODELO + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Configurar cámara (ancho, alto, espejo)
+        const flip = true; 
+        webcam = new tmImage.Webcam(280, 280, flip); 
+        await webcam.setup(); 
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+    }
+
+    async function loop() {
+        webcam.update();
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+        
+        let highestProb = 0;
+        let bestLabel = "";
+
+        for (let i = 0; i < maxPredictions; i++) {
+            if (prediction[i].probability > highestProb) {
+                highestProb = prediction[i].probability;
+                bestLabel = prediction[i].className;
+            }
+        }
+
+        const statusCard = document.getElementById("status-card");
+        const confText = document.getElementById("confidence");
+        const porcentaje = (highestProb * 100).toFixed(1);
+
+        confText.innerText = `Clase: ${bestLabel} (${porcentaje}%)`;
+
+        // Evaluar resultado para cambiar el recuadro visual
+        if (bestLabel.toUpperCase().includes("OK")) {
+            statusCard.innerText = "PASO: OK";
+            statusCard.style.backgroundColor = "#28a745"; // Verde
+        } else {
+            statusCard.innerText = "DESCARTE: NG";
+            statusCard.style.backgroundColor = "#dc3545"; // Rojo
+        }
+    }
+
+    init();
+  </script>
+</body>
+</html>
